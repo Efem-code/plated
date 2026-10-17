@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Plated</title>
+<meta name="description" content="A private, photo-first food blog. Works offline.">
+<meta name="theme-color" content="#c8553d">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <a class="brand" href="#/feed" id="brand">Plated</a>
+    <button class="icon-btn" id="search-btn" aria-label="Search">⌕</button>
+  </header>
+
+  <main id="view"></main>
+
+  <nav class="tabs" aria-label="Sections">
+    <a href="#/feed" data-tab="feed"><span>🍽️</span>Feed</a>
+    <a href="#/places" data-tab="places"><span>📍</span>Places</a>
+    <a href="#/new" data-tab="new" class="add" aria-label="New post"><span>＋</span></a>
+    <a href="#/tags" data-tab="tags"><span>🏷️</span>Tags</a>
+    <a href="#/me" data-tab="me"><span>📓</span>Me</a>
+  </nav>
+</div>
+
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-card" role="dialog" aria-modal="true">
+    <button class="close" id="sheet-close" aria-label="Close">✕</button>
+    <div id="sheet-body"></div>
+  </div>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+/* Safety net. If the app fails to start (a script missing or throwing), show
+   the error and a Repair button instead of a blank screen. Plain old JS on
+   purpose, so it runs even where the main app can't. */
+(function () {
+  var errs = [], shown = false;
+  window.addEventListener('error', function (e) {
+    var t = e.target;
+    errs.push(t && t !== window && (t.src || t.href) ? 'Could not load ' + (t.src || t.href).split('/').pop()
+      : (e.message || 'Error') + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : ''));
+    if (!shown) setTimeout(check, 300);
+  }, true);
+  function check() {
+    var v = document.getElementById('view');
+    if (v && v.children.length) {
+      /* The app is up but something broke: show it in a small bar instead. */
+      if (errs.length) {
+        var b = document.getElementById('err-bar') || document.body.appendChild(document.createElement('div'));
+        b.id = 'err-bar';
+        b.style.cssText = 'position:fixed;left:8px;right:8px;top:8px;z-index:99;background:#b3261e;color:#fff;padding:10px 12px;border-radius:12px;font:13px/1.4 system-ui,sans-serif';
+        b.textContent = '⚠️ ' + errs[errs.length - 1] + ' (tap to hide)';
+        b.onclick = function () { b.remove(); };
+      }
+      return;
+    }
+    shown = true;
+    var d = document.createElement('div');
+    d.style.cssText = 'position:fixed;inset:0;z-index:99;background:#fff;color:#222;padding:32px 20px;font:16px/1.5 system-ui,sans-serif;overflow:auto';
+    d.innerHTML = '<h2 style="margin:0 0 8px">Plated didn\'t start</h2><p>Tap Repair to clear the saved copy and load a fresh one.</p>' +
+      '<button id="rescue" style="font:inherit;font-weight:700;padding:14px 22px;border:0;border-radius:12px;background:#e84a27;color:#fff">Repair &amp; reload</button>' +
+      '<p style="margin-top:20px;color:#666;font-size:13px">Details: ' + (errs.join(' · ') || 'nothing was shown') + '</p>';
+    document.body.appendChild(d);
+    document.getElementById('rescue').onclick = function () {
+      var jobs = [];
+      if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+        return Promise.all(rs.filter(function (r) { return r.scope.indexOf('/plated/') > -1; }).map(function (r) { return r.unregister(); }));
+      }));
+      if (window.caches) jobs.push(caches.keys().then(function (ks) {
+        return Promise.all(ks.filter(function (k) { return k.indexOf('plated-') === 0; }).map(function (k) { return caches.delete(k); }));
+      }));
+      Promise.all(jobs).then(function () { location.replace(location.pathname + '?fresh=' + Date.now()); }, function () { location.reload(); });
+    };
+  }
+  window.addEventListener('load', function () { setTimeout(check, 2500); });
+})();
+</script>
+<script src="db.js"></script>
+<script src="share.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

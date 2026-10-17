@@ -1,0 +1,17 @@
+{
+  "name": "Plated — your food blog",
+  "short_name": "Plated",
+  "description": "A private, photo-first food blog. Log dishes with photos, ratings and stories, then share them as images or a web page. Works offline.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f7f1e8",
+  "theme_color": "#c8553d",
+  "categories": ["food", "lifestyle", "photo"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
