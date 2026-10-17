@@ -188,3 +188,40 @@ textarea.in { min-height: 150px; resize: vertical; font: 17px/1.6 var(--serif); 
 .install-bar .txt { flex: 1; min-width: 0; font-size: 14px; line-height: 1.3; }
 .install-bar .go { border: 0; background: var(--acc); color: #fff; font-weight: 700; border-radius: 10px; padding: 9px 14px; }
 .install-bar .no { border: 0; background: none; color: var(--muted); font-size: 18px; padding: 4px 6px; }
+
+/* Place search (type-ahead) */
+.acwrap { position: relative; }
+.ac { position: absolute; left: 0; right: 0; top: 100%; z-index: 20; margin-top: 4px; background: var(--card); border: 1px solid var(--line);
+  border-radius: 14px; box-shadow: 0 12px 30px rgba(0,0,0,.22); overflow: hidden; max-height: 55dvh; overflow-y: auto; }
+.panel .ac { left: 16px; right: 16px; top: auto; }
+.ac button { display: flex; gap: 10px; align-items: center; width: 100%; text-align: left; border: 0; background: none; padding: 11px 14px; cursor: pointer; }
+.ac button + button { border-top: 1px solid var(--line); }
+.ac button:active, .ac button:hover { background: var(--soft); }
+.ac .e { font-size: 20px; width: 26px; text-align: center; flex: none; color: var(--acc); }
+.ac .tx { min-width: 0; display: flex; flex-direction: column; }
+.ac .tx b { font-weight: 700; }
+.ac .tx small { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac .note { padding: 10px 14px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); }
+.ac .note:first-child { border-top: 0; }
+.pinned { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 13px; color: var(--muted); }
+.pinned span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pinned button { border: 0; background: var(--soft); border-radius: 50%; width: 24px; height: 24px; font-size: 11px; cursor: pointer; color: var(--muted); }
+
+/* Maps */
+.seg.mini { flex: none; border-radius: 999px; }
+.seg.mini button { padding: 7px 14px; font-size: 14px; white-space: nowrap; }
+.bigmap { height: calc(100dvh - 300px); min-height: 320px; border-radius: 18px; overflow: hidden; border: 1px solid var(--line); margin-bottom: 10px; background: var(--soft); }
+.minimap { height: 200px; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); margin: 0 0 12px; background: var(--soft); }
+.nopin { font: 600 12px var(--sans); color: var(--muted); }
+.pin { background: none; border: 0; }
+.pin span { position: absolute; transform: translate(-50%, -100%); margin-top: -6px; white-space: nowrap; background: var(--acc); color: #fff;
+  font: 700 12px var(--sans); padding: 4px 8px; border-radius: 999px; box-shadow: 0 2px 6px rgba(0,0,0,.35); }
+.pin span::after { content: ''; position: absolute; left: 50%; bottom: -5px; transform: translateX(-50%); border: 5px solid transparent; border-bottom: 0; border-top-color: var(--acc); }
+.leaflet-container { font: 14px var(--sans); }
+.leaflet-container .leaflet-popup-content-wrapper, .leaflet-container .leaflet-popup-tip { background: var(--card); color: var(--ink); }
+.leaflet-popup-content { margin: 10px 14px; }
+.leaflet-container a.pop { text-decoration: none; color: var(--ink); }
+.pop span { color: var(--acc); font-weight: 700; }
+.pop b { font: 700 16px var(--serif); }
+.leaflet-control-attribution { font-size: 10px; }
+@media (prefers-color-scheme: dark) { .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.9); } }

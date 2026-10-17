@@ -34,7 +34,7 @@ function sortPosts() {
 
 const starsHTML = n => n ? `<span class="stars" aria-label="${n} out of 5">${'★'.repeat(n)}<span class="off">${'★'.repeat(5 - n)}</span></span>` : '';
 const whereOf = p => [p.place, p.city].filter(Boolean).join(', ');
-const mapsURL = (place, city) => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent([place, city].filter(Boolean).join(' '));
+const mapsURL = (place, city, loc) => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent([place, loc?.address, city].filter(Boolean).join(' '));
 
 function tile(p) {
   const [, emoji] = kindOf(p.kind);
@@ -123,7 +123,7 @@ function renderPost(id) {
       <div class="kick">${emoji} ${esc(label)}${p.price ? ' · ' + '$'.repeat(p.price) : ''} · ${esc(fmtDate(p.date))}</div>
       <h1>${esc(p.title || 'Untitled dish')}</h1>
       ${p.place || p.city ? `<div class="where">📍 ${p.place ? `<a href="#/place/${encodeURIComponent(norm(p.place))}">${esc(p.place)}</a>` : ''}${p.place && p.city ? ', ' : ''}${esc(p.city || '')}
-        · <a href="${mapsURL(p.place, p.city)}" target="_blank" rel="noopener">Map</a></div>` : ''}
+        · <a href="${mapsURL(p.place, p.city, p.loc)}" target="_blank" rel="noopener">Google Maps</a></div>` : ''}
       ${p.rating || p.again ? `<div>${starsHTML(p.rating)}${p.again ? '<span class="again">↻ would order again</span>' : ''}</div>` : ''}
       ${story ? `<div class="story">${story}</div>` : '<p class="muted">No story yet — tap Edit to add one.</p>'}
       ${p.tags?.length ? `<div class="taglist">${p.tags.map(t => `<a href="#/tag/${encodeURIComponent(t)}">#${esc(t)}</a>`).join('')}</div>` : ''}
@@ -206,13 +206,13 @@ function startEditor(id) {
     route, id: p?.id || null, dirty: false, removed: [],
     f: p ? structuredClone(p) : { title: '', place: '', city: last?.city || '', date: today(), kind: 'restaurant', rating: 0, price: 0, again: false, tags: [], story: '', photos: [] },
     shots: (p?.photos || []).map(pid => ({ id: pid, rec: null })),
+    pinnedName: p?.place || '',
     prompt: PROMPTS[Math.floor(Math.random() * PROMPTS.length)],
   };
 }
 
 function renderEditor() {
   const f = ED.f;
-  const places = [...new Map(S.posts.filter(p => p.place).map(p => [norm(p.place), p])).values()];
   const cities = [...new Set(S.posts.map(p => p.city).filter(Boolean))];
   view.innerHTML = `<div class="form">
     <h1 class="page">${ED.id ? 'Edit post' : 'New post'}</h1>
@@ -223,18 +223,17 @@ function renderEditor() {
       <input type="file" id="lib" accept="image/*" multiple hidden>
     </div>
     <div class="field"><label for="title">Dish</label><input class="in title" id="title" placeholder="What did you eat?" value="${esc(f.title)}" autocomplete="off"></div>
-    <div class="two">
-      <div class="field"><label for="place">Place</label><input class="in" id="place" list="dl-places" placeholder="${f.kind === 'home' ? 'Home' : 'Restaurant name'}" value="${esc(f.place)}" autocomplete="off"></div>
-      <div class="field"><label for="city">City</label><input class="in" id="city" list="dl-cities" placeholder="City" value="${esc(f.city)}" autocomplete="off"></div>
-    </div>
-    <datalist id="dl-places">${places.map(p => `<option value="${esc(p.place)}">`).join('')}</datalist>
+    <div class="field acwrap"><label for="place">Place</label>
+      <input class="in" id="place" placeholder="${f.kind === 'home' ? 'Home' : 'Start typing the restaurant…'}" value="${esc(f.place)}" autocomplete="off" enterkeyhint="next">
+      <div class="pinned" id="pinned"></div></div>
     <datalist id="dl-cities">${cities.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
     <div class="field"><span class="lbl">Kind</span><div class="kinds" id="kinds">${KINDS.map(([k, e, l]) => `<button type="button" class="chip${f.kind === k ? ' on' : ''}" data-k="${k}">${e} ${l}</button>`).join('')}</div></div>
     <div class="field"><span class="lbl">Rating</span><div class="picker" id="rate">${[1, 2, 3, 4, 5].map(i => `<button type="button" data-v="${i}" aria-label="${i} stars">★</button>`).join('')}</div></div>
     <div class="two">
+      <div class="field"><label for="city">City</label><input class="in" id="city" list="dl-cities" placeholder="City" value="${esc(f.city)}" autocomplete="off"></div>
       <div class="field"><label for="date">Date</label><input class="in" type="date" id="date" value="${esc(f.date)}" max="${today()}"></div>
-      <div class="field"><span class="lbl">Price</span><div class="seg" id="price">${[1, 2, 3, 4].map(i => `<button type="button" data-v="${i}">${'$'.repeat(i)}</button>`).join('')}</div></div>
     </div>
+    <div class="field"><span class="lbl">Price</span><div class="seg" id="price">${[1, 2, 3, 4].map(i => `<button type="button" data-v="${i}">${'$'.repeat(i)}</button>`).join('')}</div></div>
     <div class="field"><label class="toggle"><input type="checkbox" id="again"${f.again ? ' checked' : ''}> ↻ I’d order this again</label></div>
     <div class="field"><label for="story">The story</label><textarea class="in" id="story" placeholder="${esc(ED.prompt)}">${esc(f.story)}</textarea></div>
     <div class="field"><label for="tagin">Tags</label><div class="tagbox" id="tagbox"></div><div class="sugg" id="sugg"></div></div>
@@ -245,21 +244,38 @@ function renderEditor() {
   </div>`;
 
   const dirty = () => { ED.dirty = true; };
-  drawShots(); drawRate(); drawPrice(); drawTags();
+  drawShots(); drawRate(); drawPrice(); drawTags(); drawPinned();
 
-  for (const k of ['title', 'place', 'city', 'date', 'story']) $('#' + k).addEventListener('input', e => { f[k] = e.target.value; dirty(); });
+  for (const k of ['title', 'city', 'date', 'story']) $('#' + k).addEventListener('input', e => { f[k] = e.target.value; dirty(); });
+  $('#place').addEventListener('input', e => {
+    f.place = e.target.value; dirty();
+    /* Typing over a picked place means it's a different place now. */
+    if (f.loc && norm(f.place) !== norm(ED.pinnedName)) { f.loc = null; drawPinned(); }
+  });
   $('#place').addEventListener('change', () => {
     /* Reuse the spelling already on file so Places doesn't split one restaurant in two. */
     const hit = S.posts.find(p => norm(p.place) === norm(f.place));
-    if (!hit) return;
-    f.place = hit.place; $('#place').value = hit.place;
-    if (hit.city && !f.city) { f.city = hit.city; $('#city').value = hit.city; }
+    if (!hit || f.loc) return;
+    pick({ name: hit.place, city: hit.city, loc: hit.loc || null });
   });
+  Geo.picker($('#place'), { getCity: () => f.city, onPick: pick });
+  function pick({ name, city, loc }) {
+    f.place = name; $('#place').value = name; ED.pinnedName = name;
+    if (loc) f.loc = loc; else delete f.loc;
+    if (city) { f.city = city; $('#city').value = city; }
+    dirty(); drawPinned();
+  }
+  function drawPinned() {
+    const el = $('#pinned');
+    el.innerHTML = f.loc ? `📍 <span>${esc(f.loc.address || 'Pinned on the map')}</span><button type="button" id="unpin" aria-label="Remove map pin">✕</button>` : '';
+    el.hidden = !f.loc;
+    $('#unpin')?.addEventListener('click', () => { delete f.loc; dirty(); drawPinned(); });
+  }
   $('#again').onchange = e => { f.again = e.target.checked; dirty(); };
   $$('#kinds .chip').forEach(b => b.onclick = () => {
     f.kind = b.dataset.k; dirty();
     $$('#kinds .chip').forEach(x => x.classList.toggle('on', x === b));
-    $('#place').placeholder = f.kind === 'home' ? 'Home' : 'Restaurant name';
+    $('#place').placeholder = f.kind === 'home' ? 'Home' : 'Start typing the restaurant…';
   });
   $$('#rate button').forEach(b => b.onclick = () => { const v = +b.dataset.v; f.rating = f.rating === v ? 0 : v; dirty(); drawRate(); });
   $$('#price button').forEach(b => b.onclick = () => { const v = +b.dataset.v; f.price = f.price === v ? 0 : v; dirty(); drawPrice(); });
@@ -382,25 +398,33 @@ function placeGroups() {
     x.last = x.posts[0].date;
     x.cover = (x.posts.find(p => p.photos?.length) || {}).photos?.[0];
     x.city = x.city || x.posts.find(p => p.city)?.city || '';
+    x.loc = x.posts.find(p => p.loc)?.loc || null;
     return x;
   });
 }
 
 function renderPlaces() {
-  const sort = store.get('placeSort', 'recent');
+  const sort = store.get('placeSort', 'recent'), mode = store.get('placeView', 'list');
   const groups = placeGroups().sort(sort === 'visits' ? (a, b) => b.posts.length - a.posts.length || b.last.localeCompare(a.last)
     : sort === 'rating' ? (a, b) => b.avg - a.avg || b.posts.length - a.posts.length
     : (a, b) => b.last.localeCompare(a.last));
+  const unpinned = groups.filter(g => !g.loc).length;
   view.innerHTML = `<h1 class="page">Places</h1>
     <p class="sub">${groups.length} place${groups.length === 1 ? '' : 's'} you’ve written about.</p>
-    ${groups.length ? `<div class="chips">${[['recent', 'Recent'], ['visits', 'Most visits'], ['rating', 'Best rated']].map(([k, l]) => `<button class="chip${sort === k ? ' on' : ''}" data-s="${k}">${l}</button>`).join('')}</div>
-    <div class="list cols">${groups.map(g => `<a class="item" href="#/place/${encodeURIComponent(g.key)}">
+    ${groups.length ? `<div class="chips">
+      <div class="seg mini">${[['list', 'List'], ['map', 'Map']].map(([k, l]) => `<button class="${mode === k ? 'on' : ''}" data-m="${k}">${l}</button>`).join('')}</div>
+      ${mode === 'list' ? [['recent', 'Recent'], ['visits', 'Most visits'], ['rating', 'Best rated']].map(([k, l]) => `<button class="chip${sort === k ? ' on' : ''}" data-s="${k}">${l}</button>`).join('') : ''}</div>
+    ${mode === 'map' ? `<div class="bigmap" id="map"></div>
+      ${unpinned ? `<p class="muted" style="font-size:13px">${unpinned} place${unpinned === 1 ? ' isn’t' : 's aren’t'} on the map yet — open ${unpinned === 1 ? 'it' : 'one'} from the list and tap “Pin it”.</p>` : ''}`
+    : `<div class="list cols">${groups.map(g => `<a class="item" href="#/place/${encodeURIComponent(g.key)}">
       ${g.cover ? `<img data-pid="${g.cover}" alt="">` : `<div class="ph">📍</div>`}
-      <div><div class="t">${esc(g.name)}</div><div class="m">${esc(g.city)}${g.city ? ' · ' : ''}${g.posts.length} dish${g.posts.length === 1 ? '' : 'es'} · ${esc(fmtDate(g.last))}</div></div>
+      <div><div class="t">${esc(g.name)}${g.loc ? '' : ' <span class="nopin" title="Not on the map yet">· no pin</span>'}</div><div class="m">${esc(g.city)}${g.city ? ' · ' : ''}${g.posts.length} dish${g.posts.length === 1 ? '' : 'es'} · ${esc(fmtDate(g.last))}</div></div>
       ${g.avg ? `<div class="r">★ ${g.avg.toFixed(1)}</div>` : ''}
-    </a>`).join('')}</div>` : `<div class="empty"><div class="big">📍</div><p>Add a place name to a post and it shows up here.</p></div>`}`;
+    </a>`).join('')}</div>`}` : `<div class="empty"><div class="big">📍</div><p>Pick a restaurant when you write a post and it shows up here — and on the map.</p></div>`}`;
   Photos.hydrate(view);
   $$('.chip', view).forEach(b => b.onclick = () => { store.set('placeSort', b.dataset.s); renderPlaces(); });
+  $$('.seg.mini button', view).forEach(b => b.onclick = () => { store.set('placeView', b.dataset.m); renderPlaces(); });
+  if (mode === 'map' && groups.length) MapView.show($('#map'), groups);
 }
 
 function renderPlace(key) {
@@ -408,11 +432,31 @@ function renderPlace(key) {
   if (!g) { location.replace('#/places'); return; }
   view.innerHTML = `<a class="back" href="#/places" id="back" style="color:var(--muted);text-decoration:none;font-weight:600">← Places</a>
     <h1 class="page">${esc(g.name)}</h1>
-    <p class="sub">${esc(g.city)}${g.city ? ' · ' : ''}${g.posts.length} dish${g.posts.length === 1 ? '' : 'es'}${g.avg ? ` · ★ ${g.avg.toFixed(1)} average` : ''}
-      · <a href="${mapsURL(g.name, g.city)}" target="_blank" rel="noopener">Open in Maps</a></p>
+    <p class="sub">${g.loc?.address ? esc(g.loc.address) + ' · ' : ''}${esc(g.city)}${g.city ? ' · ' : ''}${g.posts.length} dish${g.posts.length === 1 ? '' : 'es'}${g.avg ? ` · ★ ${g.avg.toFixed(1)} average` : ''}</p>
+    ${g.loc ? `<div class="minimap" id="map"></div>` : `<div class="panel acwrap"><h3>📍 Pin it on the map</h3>
+      <p>Search for ${esc(g.name)} and pick the right one.</p>
+      <input class="in" id="pinq" value="${esc(g.name)}" autocomplete="off" placeholder="Restaurant name"></div>`}
+    <div class="row" style="margin:0 0 16px"><a class="btn small" href="${mapsURL(g.name, g.city, g.loc)}" target="_blank" rel="noopener">Open in Google Maps</a>
+      ${g.loc ? '<button class="btn small" id="repin">Move pin</button>' : ''}</div>
     ${gridHTML(g.posts, false)}`;
   $('#back').onclick = e => { e.preventDefault(); back('#/places'); };
   Photos.hydrate(view);
+  if (g.loc) MapView.show($('#map'), [g], { zoom: 16, popups: false });
+  $('#repin')?.addEventListener('click', async () => {
+    for (const p of g.posts) { delete p.loc; await DB.put('posts', p); }
+    renderPlace(key);
+  });
+  const q = $('#pinq');
+  if (q) Geo.picker(q, {
+    getCity: () => g.city, unpinned: false,
+    onPick: async ({ city, loc }) => {
+      if (!loc) { toast('Pick a result from the map search'); return; }
+      /* Every visit to this place gets the pin; the name you used stays. */
+      for (const p of g.posts) { p.loc = loc; if (!p.city && city) p.city = city; p.updated = Date.now(); await DB.put('posts', p); }
+      toast('Pinned ✓');
+      renderPlace(key);
+    },
+  });
 }
 
 /* ---------- Tags ---------- */
@@ -532,6 +576,7 @@ function route() {
 
   S.inApp++;
   closeSheet();
+  MapView.clear();
   const tab = { feed: 'feed', post: 'feed', new: 'new', edit: 'new', places: 'places', place: 'places', tags: 'tags', tag: 'tags', me: 'me' }[name] || 'feed';
   $$('.tabs a').forEach(a => a.classList.toggle('on', a.dataset.tab === tab));
   if (name !== 'feed') S.search = false;

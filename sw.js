@@ -6,7 +6,7 @@ const BUILD = '20261016-220523';
 const PREFIX = 'plated-';
 const CACHE = PREFIX + BUILD;
 const SHELL = [
-  './', './index.html', './styles.css', './db.js', './share.js', './app.js',
+  './', './index.html', './styles.css', './db.js', './share.js', './places.js', './app.js',
   './manifest.webmanifest', './icon-192.png', './icon-512.png'
 ];
 
